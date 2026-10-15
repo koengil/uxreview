@@ -1,0 +1,568 @@
+<title>UX Review Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: review desk — site picker on top, red-pen annotated screenshot in a sticky panel, finding cards alongside */
+:root{
+  --paper:#F3F4F6; --sheet:#FFFFFF; --ink:#15181E; --muted:#5A6170; --line:#DCDFE5;
+  --pen:#D3263A; --pen-soft:rgba(211,38,58,.12);
+  --sev-alta:#C2272D; --sev-media:#B86200; --sev-baixa:#4D6178; --ok:#1F7A4D;
+  --display:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#111318; --sheet:#1A1D24; --ink:#ECEEF2; --muted:#9AA2B1; --line:#2C313B;
+  --pen:#FF5468; --pen-soft:rgba(255,84,104,.16);
+  --sev-alta:#FF6B6F; --sev-media:#F0A04B; --sev-baixa:#93A7BF; --ok:#5BC98E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#111318; --sheet:#1A1D24; --ink:#ECEEF2; --muted:#9AA2B1; --line:#2C313B;
+  --pen:#FF5468; --pen-soft:rgba(255,84,104,.16);
+  --sev-alta:#FF6B6F; --sev-media:#F0A04B; --sev-baixa:#93A7BF; --ok:#5BC98E; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:400 15px/1.55 var(--body);padding-inline:clamp(16px,3vw,40px);padding-block:28px 80px}
+.wrap{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:52px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,4.2vw,50px);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(22px,2.4vw,30px);font-weight:700;letter-spacing:-.01em}
+h3{font-size:17px;font-weight:700}
+p{margin:0}
+a{color:inherit}
+.label{font:500 11.5px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+code,.mono{font-family:var(--mono);font-size:.88em}
+
+/* Site picker */
+.picker{display:flex;flex-direction:column;gap:12px}
+.sites{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.site{all:unset;box-sizing:border-box;cursor:pointer;background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.site b{font:700 16px/1.2 var(--display)}
+.site span{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.site .mini{display:flex;gap:10px;margin-top:6px;font:500 12px/1 var(--mono);font-variant-numeric:tabular-nums}
+.site .mini i{font-style:normal}
+.site[aria-selected="true"]{border-color:var(--pen);box-shadow:inset 0 0 0 1px var(--pen)}
+.site:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+
+/* Site header */
+.top{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:40px;align-items:end}
+.top p.lede{font-size:17px;color:var(--muted);max-width:62ch;margin-top:14px}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13.5px;margin:0}
+.meta dt{font:500 11.5px/1.6 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.meta dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.tally{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.tally div{background:var(--sheet);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-width:108px}
+.tally b{display:block;font:700 26px/1 var(--display);font-variant-numeric:tabular-nums}
+.tally span{font-size:12.5px;color:var(--muted)}
+
+/* Filters */
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font:500 13px/1 var(--body);border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:999px;padding:8px 14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip:focus-visible,.pin:focus-visible,.card:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+
+/* Review panel */
+.review{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:28px;align-items:start}
+.review.mobile{grid-template-columns:minmax(0,380px) minmax(0,1fr)}
+.viewer{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);background:var(--sheet);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.viewer-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px}
+.viewer-scroll{max-height:calc(100vh - 110px);overflow:auto;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){.viewer-scroll{scroll-behavior:auto}}
+.shot{position:relative;margin:0;max-width:100%}
+.shot img{display:block;width:100%;height:auto}
+.phones{display:flex;flex-direction:column;gap:16px}
+.phone{background:var(--sheet);border:1px solid var(--line);border-radius:22px;padding:10px;max-width:100%;margin:0}
+.phone .shot{border-radius:14px;overflow:hidden}
+.phone figcaption{font-size:12.5px;color:var(--muted);padding:8px 4px 2px}
+.box{position:absolute;border:2px solid var(--pen);border-radius:4px;background:transparent;transition:background .15s;pointer-events:none}
+.box.on{background:var(--pen-soft);border-width:3px}
+.pin{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;background:var(--pen);color:#fff;font:700 12.5px/26px var(--mono);text-align:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);cursor:pointer;padding:0;z-index:2}
+.pin.dim,.box.dim{opacity:.18}
+
+.list{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;scroll-margin-top:16px;cursor:pointer}
+.card.on{border-color:var(--pen);box-shadow:0 0 0 1px var(--pen)}
+.card-head{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start}
+.num{width:28px;height:28px;border-radius:50%;background:var(--pen);color:#fff;font:700 13px/28px var(--mono);text-align:center}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tag{font:500 11px/1 var(--mono);padding:5px 7px;border-radius:4px;border:1px solid var(--line);color:var(--muted)}
+.sev{font:600 11px/1 var(--mono);padding:5px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em;color:var(--sheet)}
+.sev.alta{background:var(--sev-alta)} .sev.media{background:var(--sev-media)} .sev.baixa{background:var(--sev-baixa)}
+.row{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;font-size:14.5px}
+.row .label{padding-top:3px}
+.row.q p{font-style:italic}
+.hidden-card{display:none}
+
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.panel{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:20px 22px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.ok-list li::marker{color:var(--ok)}
+.slop-table{width:100%;border-collapse:collapse;font-size:14px;min-width:720px}
+.slop-table th,.slop-table td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.slop-table th{font:500 11.5px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.tablewrap{overflow-x:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px}
+.qs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.qs ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px}
+.section{display:flex;flex-direction:column;gap:18px}
+.section-head{display:flex;flex-direction:column;gap:8px;max-width:72ch}
+.section-head p{color:var(--muted)}
+.foot{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:18px}
+
+@media (max-width:980px){
+  .sites{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .top,.review,.review.mobile,.grid2,.qs{grid-template-columns:minmax(0,1fr)}
+  .viewer{position:relative;top:0}
+  .viewer-scroll{max-height:70vh}
+  .review.mobile .viewer{max-width:400px;width:100%;margin-inline:auto}
+}
+@media (max-width:520px){
+  .sites{grid-template-columns:minmax(0,1fr)}
+  .row{grid-template-columns:minmax(0,1fr);gap:2px}
+  .pin{width:22px;height:22px;font-size:11px;line-height:22px}
+}
+</style>
+
+<div class="wrap">
+  <nav class="picker" aria-label="Choose a site">
+    <div class="label">UX audit · accessibility · heuristics · AI slop · pick a site</div>
+    <div class="sites" role="tablist" id="sites"></div>
+  </nav>
+  <main id="report" class="wrap" style="gap:52px"></main>
+  <p class="foot">Measured on Oct 14, 2026: computed styles in Chrome via the DevTools Protocol at 1440×900 and 375×812, Tab-key navigation, and the accessibility tree. Contrast uses the WCAG relative-luminance formula. Items marked “risk” need confirmation with a screen reader (NVDA or VoiceOver).</p>
+</div>
+
+<script>
+const SITES={
+modern:{
+ name:"Modern Executive Solutions",short:"Modern",url:"modern-exec-reimagined.yoyojmah.chatgpt.site",
+ lede:"Redesigned home page for Modern, an executive search firm. Each number on the screenshot marks a problem. The card next to it gives the evidence, the standard, a fix, and the question I would bring to the client.",
+ desk:{src:"shots/desktop-full.png",w:1440,h:4089},
+ mob:[{src:"shots/mobile-hero.jpg",w:375,h:812,cap:"Top of the page"},{src:"shots/mobile-footer.jpg",w:375,h:812,cap:"End of the page and footer"}],
+ mobIntro:"The layout has no horizontal scroll at 375px. The problems are in the navigation, the weight of the first screen, and the small footer links.",
+ D:[
+ {sev:"alta",title:"Every “Contact Us” opens the system email client",tags:["Heuristic","Usability"],ref:"Nielsen #1 Visibility of system status, #3 User control and freedom",box:[1225,26,124,56],
+  ev:"All 6 contact buttons (header, hero, audience cards, and final CTA) point to <code>mailto:</code>. On computers without a configured email client, nothing happens. The ↗ arrow promises a page and delivers an email window.",
+  fix:"Build a short contact form that asks for the visitor type (company, executive, private equity). Show the email address as copyable text as a fallback, and say what happens after sending.",
+  q:"How do leads arrive today, who triages them, and is there a CRM they should land in?"},
+ {sev:"media",title:"Two CTAs competing in the header",tags:["Heuristic","Usability"],ref:"Nielsen #8 Aesthetic and minimalist design",box:[1052,26,176,56],
+  ev:"“See the AI Advantage” and “Contact Us” have the same button size and weight. The nav also has an “AI Advantage” link that only shows on mobile, so the same destination appears in two places.",
+  fix:"Keep one primary CTA (contact) and move “AI Advantage” into the nav as a regular link.",
+  q:"If a visitor does only one thing on this page, what should it be?"},
+ {sev:"media",title:"Weak, redundant social proof strip",tags:["WCAG","Heuristic"],ref:"WCAG 2.4.4 Link purpose · Nielsen #4 Consistency",box:[80,118,1265,70],
+  ev:"“Trusted by nearly 100 of the Fortune 500” is set in 11px, and “nearly” weakens the number. Two links in a row go to /case-studies with different names, so screen reader users hear the same destination twice. The Mastercard logo is unreadable at this size.",
+  fix:"Use one link, 14px or larger text, and an exact number. Balance the logos’ visual size and link each logo to its case study, if one exists.",
+  q:"What is the exact number of Fortune 500 clients, and do we have formal permission to show these logos?"},
+ {sev:"media",title:"Fake product card on a generic photo",tags:["AI slop","WCAG"],ref:"WCAG 1.3.1 Info and relationships · 1.1.1 Non-text content",box:[738,410,492,288],
+  ev:"The “Modern Intelligence” card uses an H2 before the first real section, which breaks the heading structure. The stairwell photo has descriptive alt text, but it is decorative and says nothing about the service. The “See how it works” link is 11px.",
+  fix:"Replace the card with something real: a product screenshot, an excerpt from a report, or a team member. Turn the card text into a paragraph. If the photo stays, use <code>alt=\"\"</code>.",
+  q:"Does Modern Intelligence exist as a product today? What can we show of it?"},
+ {sev:"media",title:"10 to 11px microcopy across the page",tags:["WCAG","Usability"],ref:"WCAG 1.4.4 Resize text (risk) · legibility",box:[80,240,400,28],
+  ev:"Eyebrows, labels, captions, and the footer sit between 10 and 11px, in more than 30 elements. The audience is CEOs and CHROs, often over 45, reading on laptops.",
+  fix:"Set a type scale with a 12px floor for uppercase labels and 14px for supporting text.",
+  q:"Is there data on who visits the site today (age, device)? Does the brand have an official type scale?"},
+ {sev:"alta",title:"01/02/03 numbering fails contrast and means nothing",tags:["WCAG","Heuristic","AI slop"],ref:"WCAG 1.4.3 Contrast minimum (fail) · Nielsen #2",box:[80,1038,1265,70],
+  ev:"The numbers use <code>#80916B</code> on the light background: 3.15:1, where the minimum is 4.5:1. The numbering suggests steps or tabs, but these are three loose labels with no explanation and no interaction.",
+  fix:"Darken the text to 4.5:1 or more. Give each pillar a sentence explaining what it delivers, or drop the numbering if there is no real order.",
+  q:"Do methodology, context, and judgment happen in that order? What does the client get at each step?"},
+ {sev:"media",title:"Too many internal brand names",tags:["Heuristic"],ref:"Nielsen #2 Match between system and the real world",box:[800,878,520,92],
+  ev:"One paragraph mentions “Modern Studio” and “Modern Future Index”; next to it sits “Modern Intelligence”; further down comes “M1”. Visitors can’t tell what each one does or whether they are separate products.",
+  fix:"Name things by their benefit (“our leadership assessment”) and add the product name second. Link each name to the page that explains it.",
+  q:"Which of these names do clients already recognize? Is any of them sold separately?"},
+ {sev:"media",title:"AI Advantage card: hidden link and repeated copy",tags:["WCAG","AI slop"],ref:"WCAG 2.5.3 Label in name (risk) · 1.3.1",box:[778,1205,580,375],
+  ev:"The whole card is a link with an <code>aria-label</code> that replaces all visible text, and there is no arrow or button to show it is clickable. “A clearer brief” appears for the second time. The heading is read as “See beyondthe résumé” because a space is missing before the line break.",
+  fix:"Show a visible CTA inside the card and remove the aria-label. Fix the missing space. Replace the three-part slogan with a concrete example of what the AI delivers.",
+  q:"What is the strongest proof that the AI improves a hire? Is there a case study?"},
+ {sev:"alta",title:"Audience cards open email and fail contrast",tags:["WCAG","Heuristic"],ref:"WCAG 1.4.3 (fail) · Nielsen #4 Consistency",box:[758,1825,588,448],
+  ev:"The labels “CEOs & CHROs”, “Executives”, and “Private equity” are 10px with 3.79:1 contrast. The ↗ arrow promises navigation, but the cards open an email.",
+  fix:"Send each audience to its own page with specific content and a CTA. Labels at 12px or larger with 4.5:1 contrast.",
+  q:"What is the expected journey for each audience? Should job-seeking executives enter the same funnel as clients?"},
+ {sev:"baixa",title:"White text placed directly on the photo",tags:["WCAG"],ref:"WCAG 1.4.3 (risk)",box:[100,2140,250,100],
+  ev:"“Leadership is personal.” sits on a photo with no guaranteed dark layer. It works today, but fails if the photo changes.",
+  fix:"Add a dark gradient behind the text that guarantees 4.5:1, or move the text off the photo.",
+  q:"Are these stock photos or Modern’s own? Will they change often?"},
+ {sev:"media",title:"M1: unsourced number and a line that looks like a control",tags:["Heuristic","AI slop"],ref:"Nielsen #2 · false affordance",box:[80,2415,594,395],
+  ev:"“350+” has no date or source. The “Research — Your decisions — Your peers” line looks like a slider but does nothing. Next to it, “Next for M1: AI that…” promises a future feature on a sales page.",
+  fix:"Add a source and date to the number. Replace the fake line with testimonials or real meeting topics. Take the roadmap off the home page.",
+  q:"Can we prove the 350+ members? When will the M1 AI launch?"},
+ {sev:"media",title:"“Specialists” in the copy, only the CEO in the photo",tags:["Heuristic"],ref:"Nielsen #4 Consistency · WCAG 3.2.4 (risk)",box:[80,2948,700,392],
+  ev:"The copy talks about specialists, but only the founder is shown. “Meet our people” goes to another domain with a different look, without warning.",
+  fix:"Show 3 or 4 specialists with their practice areas. Use one domain, or clearly mark links that leave the site.",
+  q:"Will this site replace the current one? Which team members can appear?"},
+ {sev:"media",title:"Three services link to the same page",tags:["WCAG","Heuristic"],ref:"WCAG 2.4.4 Link purpose",box:[80,3450,1265,70],
+  ev:"Executive search, Organizational consulting, and Leadership advisory all point to the same <code>/solutions</code> URL on the old site.",
+  fix:"Create one page or anchor per service. Until that content exists, make the list plain text.",
+  q:"Is there content for each service? Which one brings in the most revenue?"},
+ {sev:"baixa",title:"Final CTA doesn’t set expectations for the next step",tags:["Heuristic"],ref:"Nielsen #1 Visibility of system status",box:[640,3752,145,72],
+  ev:"“Let’s make it Modern.” leads to a generic email. Visitors don’t know whether they’ll get a call, a proposal, or a form, or how soon.",
+  fix:"Say what happens: “Book 30 minutes with a partner, reply within 1 business day.”",
+  q:"What is the standard first sales step today?"},
+ {sev:"alta",title:"Footer: contrast, small targets, and broken links",tags:["WCAG"],ref:"WCAG 1.4.3 (fail) · 2.5.8 Target size · 2.4.1",box:[80,3905,1265,180],
+  ev:"Copyright, Privacy, Terms, and LinkedIn are 10px at 3.48:1 contrast, with 15px-tall targets. The footer logo points to <code>#main</code> instead of the home page. “Skip to content” is duplicated in the code.",
+  fix:"4.5:1 contrast, a clickable area of 24px or more, a logo that links to “/”, and a single skip link.",
+  q:"Are there required legal links (privacy, cookies, accessibility) that must go in the footer?"}],
+ M:[
+ {s:0,sev:"media",title:"Mobile menu has no hamburger and is misaligned",tags:["Heuristic","Usability"],ref:"Nielsen #8 · Nielsen #4",box:[18,96,342,52],
+  ev:"The 4 links sit loose on one line, and “AI Advantage” sits higher than the others. The “Menu” button exists in the code (with <code>aria-controls</code>) but never appears.",
+  fix:"Use the existing Menu button to open a panel with the links and the CTA.",q:"What share of traffic comes from phones?"},
+ {s:0,sev:"media",title:"Logos and headline fill the first screen",tags:["Usability"],ref:"Content hierarchy and priority",box:[18,228,342,120],
+  ev:"The first screen shows the logo, menu, logo strip, and headline. The hero CTA only appears at the bottom, and nothing explains the service in plain language.",
+  fix:"Move the logo strip below the hero on mobile and shrink the headline so the value proposition and CTA fit on the first screen.",q:"What does a visitor need to understand in the first 5 seconds?"},
+ {s:1,sev:"alta",title:"Legal links too small to tap",tags:["WCAG"],ref:"WCAG 2.5.8 Target size · 1.4.3",box:[18,766,150,34],
+  ev:"Privacy, Terms, and LinkedIn are 15px tall with 3.48:1 contrast.",
+  fix:"44px tap targets (Apple and Google guidance) and a color with 4.5:1 contrast.",q:""}],
+ slop:[
+  ["Two-line headline, second line in green italics","6 of 7 sections","The device stops standing out once it is everywhere.","Save the italics for one moment, such as the hero or the final CTA."],
+  ["Uppercase eyebrow above every heading","Every section, at 10 to 11px","Adds reading without adding information.","Use an eyebrow only where it helps people find their way."],
+  ["Three-part slogans","“A clearer brief. A deeper understanding. A stronger start.”","They sound complete but don’t say what Modern does differently.","Replace with a verifiable fact: average search time, retention rate, a case study."],
+  ["“Interface” card on an editorial photo","Hero and AI Advantage section","Simulates a product the visitor never sees.","Show the real product or a real person."],
+  ["↗ arrow on everything","CTAs, cards, services","The arrow signals an external link but leads to email, internal pages, or another domain.","→ for internal, ↗ for other sites, an envelope for email."],
+  ["Cream, serif, and green with a repeated 50/50 grid","Whole page","One of the most common looks of generated sites.","Confirm with the client which parts of the identity are fixed."]],
+ ok:["<code>lang=\"en\"</code>, page title, and meta description set","Skip link and <code>header</code>, <code>nav</code>, <code>main</code>, <code>footer</code> landmarks","Every image has <code>alt</code>","Visible keyboard focus with a 3px outline","<code>prefers-reduced-motion</code> media query present","No horizontal scroll at 375px; 16px body text"],
+ contrast:["Measured failures: 01/02/03 numbering at <b>3.15:1</b>, audience labels at <b>3.79:1</b>, footer at <b>3.48:1</b>.","More than 30 text elements between 10 and 11px.","Minimum fix: use the gray-green <code>#5D6D62</code> the site already uses (5.09:1) and a 12px floor."],
+ qs:[["Business and conversion",["What is the most valuable action: a client requesting a search, an executive getting on the radar, or someone learning about the AI?","How do leads arrive today, and how fast does the team reply?","What metric defines success for this site in 6 months?"]],
+     ["Content and proof",["Which parts of the AI (Modern Studio, Future Index, Modern Intelligence) exist and can be shown?","Which numbers can we publish with a source?","Do we have permission to use client logos and named case studies?","Are there real photos of the team and the M1 meetings?"]],
+     ["Scope and constraints",["Does this site replace modernexecutivesolutions.com or run alongside it?","Does the company have a formal accessibility target, such as WCAG 2.2 AA?","Which parts of the visual identity can’t change?","Have the AI claims been through legal review?"]]]
+},
+curial:{
+ name:"Curial.ai",short:"Curial",url:"curial-ai.yoyojmah.chatgpt.site",
+ lede:"Home page for Curial, AI software that links hiring records to on-the-job performance to show which criteria and interviews actually work. It is the most restrained and honest of the four sites. The problems are page length, email-only contact, and low-contrast supporting text.",
+ desk:{src:"shots/curial-ai-desktop.png",w:1440,h:8641},
+ mob:[{src:"shots/curial-ai-mobile.jpg",w:375,h:8857,cap:"Full page at 375px",scroll:true}],
+ mobIntro:"No horizontal scroll, and the hamburger menu works. The product screenshots become unreadable, and the hero text runs over the bright parts of the glass ring.",
+ D:[
+ {sev:"alta",title:"Every “Contact us” opens the system email client",tags:["Heuristic","Usability"],ref:"Nielsen #1 Visibility of system status, #3 User control and freedom",box:[1218,12,130,56],
+  ev:"All 5 contact points (header, hero, “Bring us a role”, final CTA, and the security link) point to <code>mailto:hello@curial.ai</code>. For B2B software, visitors expect to book a demo. Without a configured email client, nothing happens.",
+  fix:"Change it to “Book a demo” with direct scheduling, or a short form (company, role, hires per year). Keep the email address as copyable text.",
+  q:"What should first contact lead to: a demo, a pilot on one role, or a discovery call?"},
+ {sev:"media",title:"Workday and Salesforce logos are invisible to screen readers",tags:["WCAG"],ref:"WCAG 1.1.1 Non-text content (fail)",box:[370,880,320,70],
+  ev:"All 5 integration logos have <code>alt=\"\"</code>. Slack, Microsoft Teams, and Granola have their names written next to them, but Workday and Salesforce are image only. Screen reader users hear 3 systems instead of 5, and the two most important ones for HR disappear.",
+  fix:"Add <code>alt=\"Workday\"</code> and <code>alt=\"Salesforce\"</code>, or write the names next to the logos like the others.",
+  q:"Are these integrations live in production or on the roadmap?"},
+ {sev:"media",title:"3D glass ring in the hero says nothing about hiring",tags:["AI slop","Heuristic"],ref:"Nielsen #2 Match between system and the real world",box:[770,90,670,700],
+  ev:"Half of the hero is a green glass ring rendered in 3D. It is a common image on AI sites and shows nothing of the product. Curial has strong screenshots and a demo video, but they only appear after 2,900px of scrolling.",
+  fix:"Put a slice of the product in the hero (for example the “Loop integrity 14 of 18” panel) or the 2-minute video itself.",
+  q:"Is the ring part of the brand identity, or a choice made only for this site?"},
+ {sev:"media",title:"8,600px page with the second CTA only at the end",tags:["Usability","Heuristic"],ref:"Nielsen #7 Flexibility and efficiency of use",box:[150,2760,1140,150],
+  ev:"The page is 8,641px tall, twice the Modern site. After the hero, the next contact button only appears at 7,207px. In between are 4 sections telling the story of Priya, a fictional employee. A busy decision-maker has to scroll a long way to act.",
+  fix:"Add a quiet CTA at the end of the demo block and a summary of what Curial delivers right after the hero. Shorten Priya’s story to 2 sections.",
+  q:"Does the buyer read the whole page, or forward the link to someone else to evaluate?"},
+ {sev:"media",title:"Video with two overlapping play buttons",tags:["Heuristic","Usability"],ref:"Nielsen #4 Consistency",box:[160,2943,1120,630],
+  ev:"The video has native controls (play, time, volume) and, on top of them, a round play button and a “Watch the walkthrough 2 min” label. On mobile the label covers the time counter. The video has captions, which is great.",
+  fix:"Use one control: the cover with the large button until the first click, then only the native controls.",
+  q:"What is the video’s view rate today? Is it the main sales argument?"},
+ {sev:"media",title:"Product screenshots with 8 to 9px text",tags:["WCAG","Usability"],ref:"WCAG 1.4.5 Images of text (risk) · legibility",box:[160,3911,1120,631],
+  ev:"The three demo images are interface screenshots with very small text. They are hard to read at 1440px and impossible on a phone. “Open full size” opens the raw JPG in a tab, outside the site.",
+  fix:"Crop each screenshot to the part that matters and enlarge it. Highlight the key point with an annotation. Open the enlarged version in a modal on the page.",
+  q:"Can we get high-resolution crops of each product screen?"},
+ {sev:"alta",title:"Screenshot captions fail minimum contrast",tags:["WCAG"],ref:"WCAG 1.4.3 Contrast minimum (fail)",box:[155,4550,1130,32],
+  ev:"The captions (“Product demo with sample data”, “Demo data · Three weeks later”) are 12px at 3.97:1. “Product walkthrough” and “Download video” are 4.33:1. The minimum is 4.5:1.",
+  fix:"Darken the gray-green caption color (<code>#6F8073</code>) to something like <code>#536657</code>.",
+  q:"Is there a brand color guide with approved combinations?"},
+ {sev:"baixa",title:"Heading levels don’t match the visual hierarchy",tags:["WCAG"],ref:"WCAG 1.3.1 Info and relationships (risk)",box:[155,3775,430,95],
+  ev:"“What did the interviews miss?” and “A development plan before day one.” are H3 but look the size of an H2. Meanwhile “Use your existing systems.”, a logo strip, is an H2. Screen reader users navigating by headings get a different structure.",
+  fix:"Make heading levels follow the structure: no heading or a quiet H2 for the logo strip; demo sections as H3 with a smaller style.",
+  q:""},
+ {sev:"media",title:"Security: strong promise, weak proof",tags:["Heuristic"],ref:"Nielsen #1 · trust",box:[150,6340,1140,480],
+  ev:"The section says “Curial runs in your tenant” and “not used to train AI models”, but “SOC 2: not yet certified.” appears in 13px gray under a link. The “Approved records → Curial → People review” diagram is too simple for an IT buyer.",
+  fix:"Be direct: a status badge (“SOC 2 Type I in progress, expected by X”). Link to a security page with architecture, subprocessors, and retention policy.",
+  q:"What is the SOC 2 timeline? Is there security documentation ready to send to IT?"},
+ {sev:"baixa",title:"A link that is really a button",tags:["Heuristic"],ref:"Nielsen #4 Consistency",box:[770,7146,245,36],
+  ev:"“What to bring to the conversation” looks like an underlined link, but it is a button that opens a panel. “Talk with us about security” looks the same and opens an email. Identical elements do different things.",
+  fix:"Give links (which navigate) and buttons (which open something on the page) different styles.",
+  q:""},
+ {sev:"media",title:"Footer below minimum contrast",tags:["WCAG"],ref:"WCAG 1.4.3 (fail)",box:[95,8585,1250,36],
+  ev:"The copyright line and the How it works, Security, and FAQs links are 13px at 4.35:1 on the light green footer.",
+  fix:"Darken to 4.5:1 or more and grow the click area to 24px.",
+  q:""}],
+ M:[
+ {s:0,sev:"media",title:"Hero text over the bright parts of the ring",tags:["WCAG"],ref:"WCAG 1.4.3 (risk)",box:[14,236,350,330],
+  ev:"On mobile the ring sits behind the headline and paragraph. Bright streaks of glass cross the white text, so contrast changes letter by letter.",
+  fix:"Darken the image with a gradient behind the text, or move the ring below the CTA on mobile.",q:""},
+ {s:0,sev:"media",title:"Product screenshots unreadable on mobile",tags:["Usability"],ref:"Legibility",box:[24,4096,328,190],
+  ev:"The demo screenshots shrink to 319px wide. The interface text turns into a blur, and “Open full size” is only 18px tall.",
+  fix:"On mobile, show an enlarged crop of each screenshot with a caption explaining what to look at.",q:""},
+ {s:0,sev:"baixa",title:"Video label covers the timer",tags:["Usability"],ref:"Nielsen #4",box:[24,3514,328,188],
+  ev:"The “Watch the walkthrough 2 min” label sits over the “0:00” counter, which appears cut off.",
+  fix:"Hide the native controls until the first play, or move the label outside the video.",q:""}],
+ slop:[
+  ["Abstract 3D glass object in the hero","Green ring in the hero","Says nothing about hiring and looks like dozens of AI sites.","Show the product, which already exists and is good."],
+  ["Back-to-back sentence headlines with periods","“A good scorecard is only the start.”, “Keep learning after the hiring decision.”, “Her results look fine. Her follow-up is slowing.”","Every section has the same rhythm.","Alternate with questions and concrete numbers."],
+  ["Fictional persona carrying the page","“Priya” across 4 sections","Good storytelling, but with no real customer the page reads as just a demo.","Pair Priya with a real case study or testimonial."],
+  ["Dark green and off-white palette","Whole site","Restrained, but close to the default look of AI SaaS.","Use the brand color with more intent, for example only on data and states."]],
+ ok:["Skip link, landmarks, and two named <code>nav</code> elements (main and footer)","Visible keyboard focus with a 3px outline","Demo video with captions (<code>track</code>) and controls","Demo screenshots with descriptive alt text and a sample-data label","FAQ built with native <code>details/summary</code>","Honest copy: “SOC 2: not yet certified” and “Past results can reveal patterns. They don’t prove…”","Hamburger menu on mobile and no horizontal scroll"],
+ contrast:["Measured failures: screenshot captions at <b>3.97:1</b> (12px), video caption at <b>4.33:1</b>, footer at <b>4.35:1</b>.","Everything else passes; body text is above 7:1.","Minimum fix: darken the caption and footer tone by about 15%."],
+ qs:[["Business and conversion",["Who buys: the CHRO, the head of Talent Acquisition, or the hiring manager?","Should first contact lead to a demo, a pilot, or a discovery call?","How long does it take today from first contact to pilot?"]],
+     ["Content and proof",["Are there real customers or pilots we can name?","What is the SOC 2 timeline, and what security documentation exists?","Are the listed integrations in production?","Can the 2-minute video move to the top of the page?"]],
+     ["Scope and constraints",["Does the site need to address AI-in-hiring laws such as NYC Local Law 144 or the EU AI Act?","Is there a formal accessibility target?","Is the 3D ring part of the brand?"]]]
+},
+future:{
+ name:"FutureProofing",short:"FutureProofing",url:"futureproofing-next.yoyojmah.chatgpt.site",
+ lede:"Home page for FutureProofing, an AI strategy and engineering firm for business owners and CEOs. Its contrast and motion controls are the best of the four sites. The main problem is content: many promises, little proof, in a look every AI site uses.",
+ desk:{src:"shots/futureproofing-next-desktop.png",w:1440,h:6527},
+ mob:[{src:"shots/futureproofing-next-mobile.jpg",w:375,h:7431,cap:"Full page at 375px",scroll:true}],
+ mobIntro:"Mobile inherits the empty gap after the hero and the text over the prisms. Everything else adapts well.",
+ D:[
+ {sev:"media",title:"Booking a call is the only way to make contact",tags:["Heuristic","Usability"],ref:"Nielsen #3 User control and freedom · #7 Flexibility",box:[1112,8,232,56],
+  ev:"All 4 “Discuss your AI opportunity” buttons go straight to Google Calendar. That beats a <code>mailto:</code>, but it assumes the visitor already wants a meeting. There is no email, form, or lighter step, and the button doesn’t say it opens an external scheduler.",
+  fix:"Keep the booking and offer a short alternative (“Prefer to write? Describe the problem in 3 lines”). Change the label to “Book 30 min”.",
+  q:"How many calls per week can the team take? Do they want to qualify leads before the meeting?"},
+ {sev:"media",title:"Hero headline crosses the light beam",tags:["WCAG"],ref:"WCAG 1.4.3 (risk)",box:[100,380,730,100],
+  ev:"The word “business.” sits on the brightest point of the orange and violet beam. The headline’s second line is light lavender and loses contrast exactly where the image glows.",
+  fix:"Limit the headline width so it ends before the image, or darken the area behind the text.",
+  q:""},
+ {sev:"media",title:"400px gap that looks like the end of the page",tags:["Heuristic","Usability"],ref:"Nielsen #1 Visibility of system status",box:[0,880,1440,410],
+  ev:"Between the hero and the next section there are about 400px of empty black (270px on mobile). The space is reserved for a scroll animation. Anyone who doesn’t scroll slowly, or has “reduce motion” on, sees only a hole and may think the page ended.",
+  fix:"Start the next section right below the hero and keep the animation as decoration only.",
+  q:""},
+ {sev:"media",title:"Glass prisms and violet beams",tags:["AI slop"],ref:"Brand differentiation",box:[640,90,800,720],
+  ev:"Near-black background, 3D glass prisms, violet beams, and a purple <code>#6C5CFF</code> button. It is the most repeated look on AI sites from 2024 to 2026. The same scene returns in the final CTA.",
+  fix:"Replace at least one of the two scenes with something that belongs to FutureProofing: a shipped product, a team member, a result number.",
+  q:"Are the prisms part of the official identity? Is there visual material from real projects?"},
+ {sev:"media",title:"Generic diagram, labeled as illustrative",tags:["Heuristic","AI slop"],ref:"Nielsen #2 Match between system and the real world",box:[100,1565,1240,710],
+  ev:"The “Your business → FutureProofing → 3 outcomes” diagram would fit any consultancy. The note below it even says “Illustrative opportunities”. The column labels (“Your advantage”, “Your build partner”) add no information.",
+  fix:"Replace it with 3 short real examples: the client’s problem, what was built, and the result.",
+  q:"Are there 3 projects we can describe, even without naming the client?"},
+ {sev:"media",title:"Tool cards: confusing names and misaligned layout",tags:["Heuristic"],ref:"Nielsen #2 · #4 Consistency",box:[100,2830,1240,570],
+  ev:"“Atlas / Caliber” and “Content Engine” don’t say what they are. The two cards sit at different heights (100px apart), and each description sits outside its card, below it.",
+  fix:"Name them by use (“AI sales training”) with the product name as support. Align the cards and move the descriptions inside.",
+  q:"Are Atlas and Caliber two products or one? Are they sold separately, or are they internal accelerators?"},
+ {sev:"media",title:"“30 days” with a caveat that cancels it",tags:["Heuristic","AI slop"],ref:"Nielsen #1 · credibility",box:[100,4228,320,300],
+  ev:"“30 days to begin execution” takes the space of a headline stat. Right below it, in 12px, a caveat says timing depends on scope, systems, and approvals. “Begin execution” also doesn’t say what is delivered in 30 days.",
+  fix:"Say what happens in 30 days (“first prototype tested with your team”) and set the caveat at body-text size.",
+  q:"What exactly does the client have in hand on day 30?"},
+ {sev:"media",title:"Credentials with no names",tags:["Heuristic"],ref:"Nielsen #2 · trust",box:[100,5235,1240,190],
+  ev:"“Companies collectively valued in the billions” appears with no names of people or companies, no photos, and no case studies. For an owner choosing an AI partner, this is the most important argument.",
+  fix:"Show the founders with photos, previous roles, and the companies they built. One company logo is worth more than “billions”.",
+  q:"Who are the founders, and which companies can we name?"},
+ {sev:"baixa",title:"“See what we can build together” link sits off the grid",tags:["Heuristic"],ref:"Nielsen #8 · alignment",box:[40,815,210,52],
+  ev:"This link starts 48px from the edge, while all other content starts at 104px. It looks like a scroll indicator but is a link.",
+  fix:"Align it to the grid and decide: either a link styled as a link, or a scroll indicator with an arrow.",
+  q:""},
+ {sev:"baixa",title:"Footer navigation differs from the header",tags:["WCAG","Heuristic"],ref:"WCAG 3.2.3 Consistent navigation (risk)",box:[945,6372,400,40],
+  ev:"The header has Home, Our partnership, and FP Tools. The footer has Our partnership, FP Tools, Our manifesto, and Our people. “Our manifesto” opens another domain without warning.",
+  fix:"Use the same items in both places and mark external links.",
+  q:"Should the manifesto live on a separate site?"}],
+ M:[
+ {s:0,sev:"media",title:"Hero text over the prisms",tags:["WCAG"],ref:"WCAG 1.4.3 (risk)",box:[14,220,350,250],
+  ev:"On mobile the prisms sit behind all the hero text. Bright edges cross the white paragraph.",
+  fix:"Darken the image behind the text, or place the image above the headline on mobile.",q:""},
+ {s:0,sev:"media",title:"Black hole after the hero",tags:["Usability"],ref:"Nielsen #1",box:[0,790,375,280],
+  ev:"About 270px of black between the “See what we can build together” link and the next section.",
+  fix:"Remove the space reserved for the animation on mobile.",q:""},
+ {s:0,sev:"baixa",title:"21px-tall footer links",tags:["WCAG"],ref:"WCAG 2.5.8 Target size",box:[14,7266,345,76],
+  ev:"Our partnership, FP Tools, Our manifesto, and Our people are 21px tall, below the 24px WCAG 2.2 asks for.",
+  fix:"Grow the tap area to 44px.",q:""}],
+ slop:[
+  ["3D glass prisms with violet beams","Hero and final CTA","The default “AI company” image. It doesn’t set the firm apart.","Show real work or real people."],
+  ["Two-sentence headline, second one in lavender","“You’ve built the advantage. Let’s make more of it.”, “Proven AI tools. Made for your business.”, “Your expertise. A bigger audience.”","The same formula in almost every heading.","Vary it: one heading with a number, one with a question, one with a client name."],
+  ["Generic flow diagram","“Your business” section","Fits any consultancy and is labeled illustrative.","Replace with real cases."],
+  ["Giant number with a tiny caveat","“30 days”","Grabs attention, then takes it back.","A number with clear context and a readable caveat."],
+  ["Vague credential","“valued in the billions”","A claim with no proof.","Names, photos, and logos."]],
+ ok:["High contrast on all measured text (6.3:1 to 18:1)","“Pause motion” button for the looping video in the final CTA (WCAG 2.2.2)","Brand film with captions","Skip link, landmarks, and visible focus","<code>prefers-reduced-motion</code> media query","CTA leads to real scheduling, with less friction than an email","Honest “Illustrative opportunities” label"],
+ contrast:["No contrast failures for text on the dark <code>#0A0A0F</code> background: the faintest gray is 6.31:1.","The risk is text over the hero and final-CTA imagery, where contrast shifts with the video’s brightness.","Fix: a fixed dark gradient behind the text."],
+ qs:[["Business and conversion",["What is the ideal client profile: size, industry, revenue?","Is booking a call the only path they want?","What sets FutureProofing apart from AI agencies and large consultancies?"]],
+     ["Content and proof",["Are there case studies with measurable results?","Who are the founders, and which companies can we name?","Are FP Tools finished products or internal accelerators? Are the names final?","What does the client receive on day 30?"]],
+     ["Scope and constraints",["Should the manifesto stay on another domain?","Are the 3D scenes a required part of the brand?","Is there a formal accessibility target?"]]]
+},
+windlass:{
+ name:"Windlass Capital",short:"Windlass",url:"windlass-capital.yoyojmah.chatgpt.site",
+ lede:"Home page for Windlass Capital, a family office that buys partial stakes in companies with $2M to $100M in annual EBITDA. It is the shortest site and the only one with no contrast failures. The problems are about trust: generic imagery, an offer summary with no numbers, and email-only contact.",
+ desk:{src:"shots/windlass-capital-desktop.png",w:1440,h:4147},
+ mob:[{src:"shots/windlass-capital-mobile.jpg",w:375,h:5617,cap:"Full page at 375px",scroll:true}],
+ mobIntro:"Mobile is well handled: a hamburger menu, numbered steps as a timeline, and no horizontal scroll. The footer still has small targets.",
+ D:[
+ {sev:"alta",title:"“Build a relationship” opens the system email client",tags:["Heuristic","Usability"],ref:"Nielsen #1 · #3 User control and freedom",box:[1192,14,176,62],
+  ev:"The 3 main buttons point to <code>mailto:</code> with a prefilled subject. Without a configured email client, nothing happens. The label “Build a relationship” is also vague: it doesn’t say whether it means a call, a valuation, or a proposal.",
+  fix:"A short, confidential form (industry, approximate EBITDA, what the owner wants) with a promised reply within X days. A concrete label: “Talk about my company”.",
+  q:"Which channel do business owners prefer for first contact? Is confidentiality a concern?"},
+ {sev:"media",title:"Hangar image that looks AI-generated",tags:["AI slop","Heuristic"],ref:"Trust · Nielsen #2",box:[735,1939,625,265],
+  ev:"The alt text reads “Illustrative scene of engineers working in aerospace manufacturing”. The image has the gloss and perfection typical of generated images. For an investor talking to owners of industrial companies, a fake scene of their own industry hurts credibility.",
+  fix:"Use real photos of portfolio companies or portraits of the founders. Without them, prefer typography and data to a fictional image.",
+  q:"Is this image AI-generated? Are there portfolio companies willing to be photographed?"},
+ {sev:"media",title:"“The offer” looks like a calculator but has no numbers",tags:["Heuristic"],ref:"Nielsen #2 · false affordance",box:[118,2218,550,208],
+  ev:"The “The offer − Taxes, fees & other uses = What reaches you” block is styled like a financial statement, but shows no values and isn’t interactive. It sits inside a fully clickable card with no clear sign of what a click does.",
+  fix:"Show an example with numbers (“Example: $10M for the stake → $7.4M to you”) or link to a real calculator.",
+  q:"Can we publish a numeric example, even a hypothetical one?"},
+ {sev:"baixa",title:"Step 03 has no link, unlike the others",tags:["Heuristic"],ref:"Nielsen #4 Consistency",box:[955,1265,410,240],
+  ev:"Steps 01 and 02 end with a link (“Plan what you keep”, “See the work”). Step 03 doesn’t, and the line connecting the steps stops at 02. The numbering makes sense here, because it is a real sequence.",
+  fix:"Give step 03 a link to the future-sale option or to the FAQ “What do we agree before investing?”.",
+  q:""},
+ {sev:"baixa",title:"↗ arrow on internal links and anchors",tags:["Heuristic","AI slop"],ref:"Nielsen #4 Consistency",box:[76,1566,222,46],
+  ev:"“What we agree upfront ↗” leads to an FAQ question on the same page. Every internal link uses ↗, which usually signals an external site.",
+  fix:"Use ↓ for on-page anchors, → for internal pages, and ↗ only for external sites.",
+  q:""},
+ {sev:"media",title:"Founders named, but no faces or track record",tags:["Heuristic"],ref:"Trust",box:[755,2720,610,160],
+  ev:"Jess Mah and Biffrey Braxton appear only in the text. There are no photos, deal counts, fund size, or portfolio companies. For an owner about to sell part of their company, who sits on the other side is the main question.",
+  fix:"Real portraits, a one-line background for each founder, and 2 or 3 numbers (available capital, deals closed).",
+  q:"Which numbers can Windlass publish without regulatory issues?"},
+ {sev:"media",title:"Capital partner audience hidden in the footer",tags:["Heuristic"],ref:"Nielsen #6 Recognition rather than recall",box:[745,3950,620,115],
+  ev:"The site has two audiences: business owners and capital partners (investors). The header only shows “For owners”; “For capital partners” exists only in the footer.",
+  fix:"If the second audience matters, bring the link to the header. If not for now, make it clear the home page is for owners.",
+  q:"Which audience is the priority for this site?"},
+ {sev:"baixa",title:"Email link with a 1,280px click area",tags:["Usability"],ref:"Click precision",box:[76,3802,1290,32],
+  ev:"The <code>hello@windlasscapital.com</code> link spans the full width of the row. A click anywhere in the empty space beside it opens an email.",
+  fix:"Limit the link area to the text.",
+  q:""}],
+ M:[
+ {s:0,sev:"media",title:"Offer summary with no numbers on mobile",tags:["Heuristic"],ref:"Nielsen #2",box:[46,2740,284,195],
+  ev:"On mobile the “The offer” block fills a whole screen without stating a single value.",
+  fix:"Show a short numeric example.",q:""},
+ {s:0,sev:"baixa",title:"22px footer links",tags:["WCAG"],ref:"WCAG 2.5.8 Target size",box:[16,5420,345,120],
+  ev:"The 5 footer links are 22px tall, below the WCAG 2.2 minimum of 24px, and packed into two columns.",
+  fix:"44px tap targets and a single column on mobile.",q:""}],
+ slop:[
+  ["Sunset wave photo in the hero","Hero","A stock metaphor that fits any investment fund.","A real photo of a company or a founder."],
+  ["AI-generated industry image","“Our partnership” card","For an industrial audience, a fake scene of their own industry hurts credibility.","Real portfolio photos."],
+  ["Short two-sentence headlines","“A little freedom now. More choices later.”, “You earned it. Plan for what you keep.”, “Owners deserve more options.”","Well written, but all in the same cadence.","Alternate with a number or a direct owner question."],
+  ["↗ arrow on every link","Whole page","The arrow loses its meaning of “leaves the site”.","Different arrows per destination type."]],
+ ok:["All measured text passes contrast (6.85:1 to 16:1)","EBITDA range and industries right after the hero: visitors know at once whether they are the right fit","Clear disclaimers (“A future sale and its value are not guaranteed”)","FAQ with the questions owners actually ask","The “What we agree upfront” link opens the right FAQ question","Skip link, landmarks, visible focus, and a hamburger menu on mobile","Short page: 4,147px"],
+ contrast:["No contrast failures measured.","The faintest text (legal note, 14px) is 8.13:1 on the <code>#0B1921</code> background.","The only text under 12px is the word “CAPITAL” in the logo, which WCAG exempts."],
+ qs:[["Business and conversion",["Which audience is the priority: owners or capital partners?","Should first contact be email, a call, or a confidential form?","How many conversations per month can the team handle?"]],
+     ["Content and proof",["Are there closed deals we can mention, even anonymized?","Are there real photos of the founders and portfolio companies?","Can we show a numeric example of the offer?"]],
+     ["Scope and constraints",["What regulatory limits (investment marketing rules) constrain what we can promise?","Is the hangar image AI-generated? Is there a policy on that?","Is there a formal accessibility target?"]]]
+}};
+const ORDER=["modern","curial","future","windlass"];
+const sevName={alta:"High",media:"Medium",baixa:"Low"};
+let cur=null, ALL=[];
+
+ORDER.forEach(k=>{const s=SITES[k];
+  s.D.forEach((f,i)=>{f.n=i+1;f.s="d"});
+  s.M.forEach((f,i)=>{f.n=s.D.length+i+1;f.s="m"+f.s});
+  s.all=[...s.D,...s.M];
+});
+const cnt=(s,v)=>s.all.filter(f=>f.sev===v).length;
+
+const sitesEl=document.getElementById("sites");
+ORDER.forEach(k=>{const s=SITES[k];
+  const b=document.createElement("button");b.className="site";b.setAttribute("role","tab");b.id="tab-"+k;b.dataset.k=k;
+  b.innerHTML=`<b>${s.name}</b><span>${s.url}</span><span class="mini"><i style="color:var(--sev-alta)">${cnt(s,"alta")} high</i><i style="color:var(--sev-media)">${cnt(s,"media")} medium</i><i style="color:var(--sev-baixa)">${cnt(s,"baixa")} low</i></span>`;
+  b.addEventListener("click",()=>show(k,true));
+  sitesEl.append(b);
+});
+sitesEl.addEventListener("keydown",e=>{
+  if(!["ArrowRight","ArrowLeft"].includes(e.key))return;
+  const i=ORDER.indexOf(cur),j=(i+(e.key==="ArrowRight"?1:-1)+ORDER.length)%ORDER.length;
+  show(ORDER[j],true);document.getElementById("tab-"+ORDER[j]).focus();
+});
+
+function cardHTML(f){
+  return `<article class="card" id="card${f.n}" tabindex="0" data-n="${f.n}"><div class="card-head"><div class="num">${f.n}</div><div><h3>${f.title}</h3><div class="tags"><span class="sev ${f.sev}">${sevName[f.sev]}</span>${f.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div></div></div>
+  <div class="row"><span class="label">Standard</span><p>${f.ref}</p></div>
+  <div class="row"><span class="label">Problem</span><p>${f.ev}</p></div>
+  <div class="row"><span class="label">Fix</span><p>${f.fix}</p></div>
+  ${f.q?`<div class="row q"><span class="label">Question</span><p>${f.q}</p></div>`:""}</article>`;
+}
+function shotHTML(id,sh,alt){return `<figure class="shot" id="${id}" data-w="${sh.w}" data-h="${sh.h}"><div class="crop" style="position:relative;aspect-ratio:${sh.w}/${sh.h};overflow:hidden"><img src="${sh.src}" alt="${alt}" loading="lazy"></div></figure>`}
+
+function show(k,push){
+  cur=k;const s=SITES[k];ALL=s.all;
+  document.querySelectorAll(".site").forEach(b=>b.setAttribute("aria-selected",b.dataset.k===k?"true":"false"));
+  const wc=s.all.filter(f=>f.tags.includes("WCAG")).length;
+  const mobScroll=s.mob.length===1&&s.mob[0].scroll;
+  const mobileViewer=mobScroll
+    ?`<div class="viewer"><div class="viewer-bar"><span class="label">Mobile · 375px</span></div><div class="viewer-scroll" id="mscroll">${shotHTML("mshot0",s.mob[0],"Full-page mobile screenshot of "+s.name)}</div></div>`
+    :`<div class="phones">${s.mob.map((m,i)=>`<figure class="phone">${shotHTML("mshot"+i,m,"Mobile screenshot of "+s.name+": "+m.cap)}<figcaption>${m.cap}</figcaption></figure>`).join("")}</div>`;
+  document.getElementById("report").innerHTML=`
+  <header class="top">
+    <div>
+      <div class="label">Home page review</div>
+      <h1 style="margin-top:10px">${s.name}</h1>
+      <p class="lede">${s.lede}</p>
+      <div class="tally"><div><b>${s.all.length}</b><span>findings</span></div><div><b style="color:var(--sev-alta)">${cnt(s,"alta")}</b><span>high severity</span></div><div><b style="color:var(--sev-media)">${cnt(s,"media")}</b><span>medium</span></div><div><b style="color:var(--sev-baixa)">${cnt(s,"baixa")}</b><span>low</span></div><div><b>${wc}</b><span>tied to WCAG</span></div></div>
+    </div>
+    <dl class="meta">
+      <dt>URL</dt><dd class="mono"><a href="https://${s.url}/" target="_blank" rel="noopener">${s.url}</a></dd>
+      <dt>Date</dt><dd>Oct 14, 2026</dd>
+      <dt>Viewports</dt><dd>1440 × 900 (desktop), 375 × 812 (mobile)</dd>
+      <dt>Standards</dt><dd>WCAG 2.2 level AA, Nielsen’s 10 heuristics, a checklist of generic AI patterns (“AI slop”)</dd>
+      <dt>Method</dt><dd>Manual inspection, keyboard navigation, contrast from computed styles, accessibility tree</dd>
+    </dl>
+  </header>
+  <section class="section">
+    <div class="section-head"><div class="label">01 · Desktop, full page</div><h2>Annotated screenshot</h2><p>Click a number on the screenshot to open its card, or click a card to jump to its spot on the screenshot.</p></div>
+    <div class="filters" role="group" aria-label="Filter findings">
+      <button class="chip" aria-pressed="true" data-f="all">All</button>
+      <button class="chip" aria-pressed="false" data-f="WCAG">WCAG</button>
+      <button class="chip" aria-pressed="false" data-f="Heuristic">Heuristics</button>
+      <button class="chip" aria-pressed="false" data-f="AI slop">AI slop</button>
+      <button class="chip" aria-pressed="false" data-f="alta">High severity only</button>
+    </div>
+    <div class="review">
+      <div class="viewer"><div class="viewer-bar"><span class="label">Home · 1440px</span><span class="mono" style="color:var(--muted)">${s.desk.h.toLocaleString("en-US")}px tall</span></div>
+        <div class="viewer-scroll" id="dscroll">${shotHTML("dshot",s.desk,"Full-page screenshot of the "+s.name+" home page at 1440px")}</div></div>
+      <div class="list">${s.D.map(cardHTML).join("")}</div>
+    </div>
+  </section>
+  <section class="section">
+    <div class="section-head"><div class="label">02 · Mobile, 375px</div><h2>On a phone</h2><p>${s.mobIntro}</p></div>
+    <div class="review mobile">${mobileViewer}<div class="list">${s.M.map(cardHTML).join("")}</div></div>
+  </section>
+  <section class="section">
+    <div class="section-head"><div class="label">03 · Page-wide patterns</div><h2>Signs of AI slop</h2><p>Patterns common on AI-generated sites. None is a bug on its own; together they make the brand look like a template.</p></div>
+    <div class="tablewrap"><table class="slop-table"><thead><tr><th>Pattern</th><th>Where it appears</th><th>Why it matters</th><th>Alternative</th></tr></thead>
+    <tbody>${s.slop.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("")}</tbody></table></div>
+  </section>
+  <section class="grid2">
+    <div class="panel"><div class="label" style="color:var(--ok)">What already works</div><h3>Strengths</h3><ul class="ok-list">${s.ok.map(x=>`<li>${x}</li>`).join("")}</ul></div>
+    <div class="panel"><div class="label">WCAG 1.4.3 · 4.5:1 for normal text, 3:1 for large text</div><h3>Measured contrast</h3><ul>${s.contrast.map(x=>`<li>${x}</li>`).join("")}</ul></div>
+  </section>
+  <section class="section">
+    <div class="section-head"><div class="label">04 · For the meeting</div><h2>Questions for the client</h2><p>Finding-specific questions are on each card. These change the direction of the redesign and are worth asking before any proposal.</p></div>
+    <div class="qs">${s.qs.map(([t,l])=>`<div class="panel"><div class="label">${t}</div><ol>${l.map(q=>`<li>${q}</li>`).join("")}</ol></div>`).join("")}</div>
+  </section>`;
+  place(s);wire();
+  if(push){try{history.replaceState(null,"","#"+k)}catch(e){} window.scrollTo({top:0});}
+  try{localStorage.setItem("ux-site",k)}catch(e){}
+}
+
+function place(s){
+  s.all.forEach(f=>{
+    const host=document.getElementById(f.s==="d"?"dshot":"mshot"+f.s.slice(1));
+    if(!host)return;
+    const W=+host.dataset.w,H=+host.dataset.h,b=f.box;
+    const p={l:b[0]/W*100,t:b[1]/H*100,w:b[2]/W*100,h:b[3]/H*100};
+    const tgt=host.querySelector(".crop");
+    const bx=document.createElement("div");bx.className="box";bx.id="box"+f.n;
+    Object.assign(bx.style,{left:p.l+"%",top:p.t+"%",width:p.w+"%",height:p.h+"%"});
+    const pin=document.createElement("button");pin.className="pin";pin.id="pin"+f.n;pin.textContent=f.n;
+    pin.setAttribute("aria-label","Finding "+f.n+": "+f.title);
+    Object.assign(pin.style,{left:Math.max(1.6,p.l)+"%",top:Math.max(.35,p.t)+"%"});
+    pin.addEventListener("click",()=>select(f.n,"pin"));
+    tgt.append(bx,pin);
+  });
+}
+function wire(){
+  document.querySelectorAll(".card").forEach(c=>{
+    const n=+c.dataset.n;
+    c.addEventListener("click",()=>select(n,"card"));
+    c.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();select(n,"card")}});
+  });
+  document.querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
+    document.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed","false"));
+    ch.setAttribute("aria-pressed","true");filter(ch.dataset.f);
+  }));
+}
+function select(n,from){
+  document.querySelectorAll(".box.on,.card.on").forEach(e=>e.classList.remove("on"));
+  const c=document.getElementById("card"+n),b=document.getElementById("box"+n),f=ALL.find(x=>x.n===n);
+  c.classList.add("on");b.classList.add("on");
+  const beh=matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth";
+  if(from==="pin"){c.scrollIntoView({behavior:beh,block:"nearest"});return}
+  const sc=b.closest(".viewer-scroll");
+  if(sc){const img=b.parentElement.querySelector("img");const host=b.closest(".shot");
+    const y=f.box[1]/(+host.dataset.h)*img.clientHeight;
+    sc.scrollTo({top:Math.max(0,y-80),behavior:beh});
+    if(getComputedStyle(sc.parentElement).position!=="sticky")sc.scrollIntoView({behavior:beh,block:"nearest"});}
+  else b.scrollIntoView({behavior:beh,block:"nearest"});
+}
+function filter(k){
+  ALL.forEach(f=>{
+    const showIt=k==="all"||f.tags.includes(k)||f.sev===k;
+    document.getElementById("card"+f.n).classList.toggle("hidden-card",!showIt);
+    document.getElementById("pin"+f.n)?.classList.toggle("dim",!showIt);
+    document.getElementById("box"+f.n)?.classList.toggle("dim",!showIt);
+  });
+}
+let start=(location.hash||"").slice(1);
+if(!SITES[start]){try{start=localStorage.getItem("ux-site")}catch(e){start=null}}
+show(SITES[start]?start:"modern",false);
+</script>
